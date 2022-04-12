@@ -97,7 +97,12 @@ class Game(object):
         self.possible_responses2 = list(range(0,10))
         self.possible_responses3 = list(range(0,6))
         self.round_counter = 0
-        self.cards = []
+        self.cards = [] # open whole cards
+        self.cards1 = [] # red on the board
+        self.cards2 = [] # green on the board
+        self.cards3 = [] # white on the board
+        self.cards4 = [] # yellow on the board
+        self.cards5 = [] # blue on the board
         self.player1 = Player()        
         self.player2 = Player()
         self.player1.name = "Player 1"
@@ -105,38 +110,42 @@ class Game(object):
         self.list_of_players = [self.player1,self.player2]
         self.winners = []
         self.deck = StandardDeck()        
+        self.deck.shuffle()        
         self.deal_hole()
         self.winner = None
         self.action_counter = 0
-        self.attribute_list = ["p1", "p2"]
+        self.turn = np.random.randint(2,size=1)[0]
         
     def print_game_info(self):
         pass
 
-    def print_round_info(self):
+    def print_player_info(self):
+        player =  self.list_of_players[self.turn]
+        player2 =  self.list_of_players[(self.turn+1)%2]
         print("\n")
-        for player in self.list_of_players:
-            print("\n")
-            print(f"Name: {player.name}")
-            print(f"Cards: {player.cards}")
-            print(f"Player score: {player.score}")
-            print("\n")
-            print(f"Player open Cards 1: {player.cards1}")
-            print(f"Player open Cards 2: {player.cards2}")
-            print(f"Player open Cards 3: {player.cards3}")
-            print(f"Player open Cards 4: {player.cards4}")
-            print(f"Player open Cards 5: {player.cards5}")
+        print(f"Turn: {player.name}")
+        print(f"Cards: {player.cards}")
+        print(f"Player score: {player.score}")
         print("\n")
-        print(f"Whole open Cards: {self.cards}")
-
-    def establish_player_attributes(self):
-        address_assignment = 0
-        self.dealer = self.list_of_players_not_out[address_assignment]
-        self.dealer.list_of_special_attributes.append("first")
-        address_assignment += 1
-        address_assignment %= len(self.list_of_players_not_out)
-        self.small_blind = self.list_of_players_not_out[address_assignment]
-        self.small_blind.list_of_special_attributes.append("second")
+        print(f"Player open Cards Red    : {player.cards1}")
+        print(f"Player open Cards Green  : {player.cards2}")
+        print(f"Player open Cards White  : {player.cards3}")
+        print(f"Player open Cards Yellow : {player.cards4}")
+        print(f"Player open Cards Blue   : {player.cards5}")
+        print("\n")
+        print(f"Whole open Cards Red    : {self.cards1}")
+        print(f"Whole open Cards Green  : {self.cards2}")
+        print(f"Whole open Cards White  : {self.cards3}")
+        print(f"Whole open Cards Yellow : {self.cards4}")
+        print(f"Whole open Cards Blue   : {self.cards5}")
+        print("\n")
+        print(f"The other Player open Cards Red    : {player2.cards1}")
+        print(f"The other Player open Cards Green  : {player2.cards2}")
+        print(f"The other Player open Cards White  : {player2.cards3}")
+        print(f"The other Player open Cards Yellow : {player2.cards4}")
+        print(f"The other Player open Cards Blue   : {player2.cards5}")
+        print("\n")
+        
 
 
     def deal_hole(self):
@@ -156,104 +165,144 @@ class Game(object):
         for player in self.list_of_players:
             player.score.clear()
             player.cards.clear()
-            player.list_of_special_attributes.clear()
             player.win = False
     
 
     def answer(self, action):
-    
-        player = self.list_of_players_not_out[self.turn]
+        player = self.list_of_players[self.turn]
+        chosen_card = player.cards[action[0]-1]
         
-        print(f"Current Score: {player.score}")
-        print(f"Players Cards: {player.cards}")
-                                
+        player.cards.pop(action[0]-1)
+        
+        if chosen_card.color == (action[2]-1):
+            print("Invalid response")            
+        else:
+            if action[1] == 1:
+                if chosen_card.color == 0:
+                    player.cards1.insert(0,chosen_card)
+                elif chosen_card.color == 1:    
+                    player.cards2.insert(0,chosen_card)
+                elif chosen_card.color == 2:    
+                    player.cards3.insert(0,chosen_card)
+                elif chosen_card.color == 3:    
+                    player.cards4.insert(0,chosen_card)
+                elif chosen_card.color == 4:    
+                    player.cards5.insert(0,chosen_card)
+            elif action[1] == 2:
+                if chosen_card.color == 0:
+                    self.cards1.insert(0,chosen_card)
+                elif chosen_card.color == 1:    
+                    self.cards2.insert(0,chosen_card)
+                elif chosen_card.color == 2:    
+                    self.cards3.insert(0,chosen_card)
+                elif chosen_card.color == 3:    
+                    self.cards4.insert(0,chosen_card)
+                elif chosen_card.color == 4:    
+                    self.cards5.insert(0,chosen_card)
+                    
+            if action[2] == 1:
+                player.cards.insert(0,self.cards1[0])
+                self.cards1.pop(0)
+            elif action[2] == 2:
+                player.cards.insert(0,self.cards2[0])
+                self.cards2.pop(0)
+            elif action[2] == 3:
+                player.cards.insert(0,self.cards3[0])
+                self.cards3.pop(0)
+            elif action[2] == 4:
+                player.cards.insert(0,self.cards4[0])
+                self.cards4.pop(0)
+            elif action[2] == 5:
+                player.cards.insert(0,self.cards5[0])
+                self.cards5.pop(0)
+            elif action[2] == 6:            
+                player.cards.insert(0,self.deck[0])
+                self.deck.pop(0)
+        
+        player.score =  self.score_interpreter(player)
+        print(player, "'s policy: ", action) 
+        print(player, "'s score after the action: ", player.score) 
+        print( "The number of cards left in the deck: ", len(self.deck))
+        print("\n")        
         self.turn += 1
         self.turn %= 2
         
-        choson_card = player.cards[action[0]-1]
-        player.cards.pop(action[0]-1)
         
-        if action[1] == 1:
-            player.cards1.insert(choson_card)
-        if action[1] == 2:    
-            player.cards2.insert(choson_card)
-        if action[1] == 3:    
-            player.cards3.insert(choson_card)
-        if action[1] == 4:    
-            player.cards4.insert(choson_card)
-        if action[1] == 5:    
-            player.cards5.insert(choson_card)
+    def returnplayer (self):
+        playername = self.list_of_players[self.turn].name
+        return playername
+    
+    def score_interpreter(self, player):
+        score = 0
+        score1 = -20
+        score2 = -20
+        score3 = -20
+        score4 = -20
+        score5 = -20
+        num_wager1 = 0
+        num_wager2 = 0
+        num_wager3 = 0
+        num_wager4 = 0
+        num_wager5 = 0
         
-        if action[1] == 6:
-            self.cards1.insert(choson_card)
-        if action[1] == 7:    
-            self.cards2.insert(choson_card)
-        if action[1] == 8:    
-            self.cards3.insert(choson_card)
-        if action[1] == 9:    
-            self.cards4.insert(choson_card)
-        if action[1] == 10:    
-            self.cards5.insert(choson_card)
+        if len(player.cards1) > 0:
+            for i in range(0,len(player.cards1)):
+                score1 += player.cards1[i].value
+                if player.cards1[i].value == 0:
+                    num_wager1 += 1                    
+            score += score1 * (1 + num_wager1)
             
-        if action[2] == 1:
-            player.cards.insert(0,self.cards1[0])
-            self.cards1.pop(0)
-        if action[2] == 2:
-            player.cards.insert(0,self.cards2[0])
-            self.cards2.pop(0)
-        if action[2] == 3:
-            player.cards.insert(0,self.cards3[0])
-            self.cards3.pop(0)
-        if action[2] == 4:
-            player.cards.insert(0,self.cards4[0])
-            self.cards4.pop(0)
-        if action[2] == 5:
-            player.cards.insert(0,self.cards5[0])
-            self.cards5.pop(0)
-        if action[2] == 6:
-            player.cards.insert(0,self.cards[0])
-            self.cards.pop(0)
-        
+        if len(player.cards2) > 0:
+            for i in range(0,len(player.cards2)):
+                score2 += player.cards2[i].value
+                if player.cards2[i].value == 0:
+                    num_wager2 += 1                    
+            score += score2 * (1 + num_wager2)            
 
-    def score_interpreter(player):
-        player.score = 0
-        if len(player.card1) > 0:
-            player.score += (- 20 + np.sum(player.card1.values)) * (1 + np.sum(np.where(np.array(player.card1.values) == 0,1,0)))
-        if len(player.card2) > 0:
-            player.score += (- 20 + np.sum(player.card2.values)) * (1 + np.sum(np.where(np.array(player.card2.values) == 0,1,0)) )
-        if len(player.card3) > 0:
-            player.score += (- 20 + np.sum(player.card3.values)) * (1 + np.sum(np.where(np.array(player.card3.values) == 0,1,0)) )
-        if len(player.card4) > 0:
-            player.score += (- 20 + np.sum(player.card4.values)) * (1 + np.sum(np.where(np.array(player.card4.values) == 0,1,0)))
-        if len(player.card5) > 0:
-            player.score += (- 20 + np.sum(player.card5.values)) * (1 + np.sum(np.where(np.array(player.card5.values) == 0,1,0)) )
-            
-        return player.score
+        if len(player.cards3) > 0:
+            for i in range(0,len(player.cards3)):
+                score3 += player.cards3[i].value
+                if player.cards3[i].value == 0:
+                    num_wager3 += 1                    
+            score += score3 * (1 + num_wager3)   
+        if len(player.cards4) > 0:
+            for i in range(0,len(player.cards4)):
+                score4 += player.cards4[i].value
+                if player.cards4[i].value == 0:
+                    num_wager4 += 1                    
+            score += score4 * (1 + num_wager4)   
+        if len(player.cards5) > 0:
+            for i in range(0,len(player.cards5)):
+                score5 += player.cards5[i].value
+                if player.cards5[i].value == 0:
+                    num_wager5 += 1
+            score += score5 * (1 + num_wager5)   
+        
+        return score
     
     def end_game(self):
-        if len(self.cards) == 0:
+        if len(self.deck) == 0:
             return True
         else:
             return False
         
     def find_winners(self):
-        s1=score_interpreter(self.player1)
-        s2=score_interpreter(self.player2)
+        s1 = self.score_interpreter(self.player1)
+        s2 = self.score_interpreter(self.player2)
         print(f"Scores: Player1: {s1}, Player 2: {s2}")
         if s1>s2:
-            print("player 1 won.")
+            print("Player 1 won.")
         if s1==s2:
-            print("Tie")
+            print("Tied.")
         if s1<s2:
             print("Player 2 won.")    
             
         
      
     def initialize (self):
-        self.deck.shuffle()
-        self.establish_player_attributes()
+        self.cards.shuffle()
         self.deal_hole()
-        self.turn = self.list_of_players_not_out.index(self.first_actor)
+        self.turn = self.list_of_players(self.first_actor)
     
         
     def finalize (self):    
@@ -262,12 +311,33 @@ class Game(object):
         self.round_ended = True
         
 
-isEnd = True
-game = Game()
-game.print_round_info()
-
-
+class Agent ():
+    def policy (self):
+        action = [np.random.randint(8,size=1)[0]+1,np.random.randint(2,size=1)[0]+1,6] # random action and get a card from the deck
+        return action    
         
+    
+
+isEnd = False
+a1 = Agent()
+a2 = Agent()
+game0 = Game()
+
+while isEnd == False:
+    game0.print_player_info()
+    
+    if game0.returnplayer() == "Player 1":
+        a = a1.policy()
+        game0.answer(a)
+           
+    else:
+        a = a2.policy()
+        game0.answer(a)
+        
+    if game0.end_game():
+        isEnd = True
+    
+game0.find_winners()    
 
 
 
