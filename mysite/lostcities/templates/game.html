@@ -1,0 +1,101 @@
+{% load static %}
+<html>
+<head>
+   <style>
+* {
+  box-sizing: border-box;
+}
+
+/* Create three equal columns that floats next to each other */
+.column {
+  float: left;
+  width: 12%;
+  padding: 20px;
+  
+  height: 200px; 
+}
+
+/* Clear floats after the columns */
+.row:after {
+  content: "";
+  display: table;
+  clear: both;
+  padding: 20px;
+}
+
+.row:before {
+  display: table;
+  clear: both;
+  padding: 10px;
+}
+
+</style>
+
+</head>
+{% block body %}
+    <form method="GET" style="background-color: cornsilk;">
+
+      {% csrf_token %}
+<div class="row" style="outline: thin solid">
+  {% for i in player1_c %}
+  <div class="column" style="outline: thin solid; margin-left: 20px; bottom: 0px;">
+    {% for j in i %}
+    <div>{{ j }}</div>
+     {% endfor %}
+    </div>
+  {% endfor %}
+  
+    <div class="column" style="outline: thin solid; margin-left: 20px;">
+      <p style="color: Orange; font-weight: 10px;margin-top: 0px; font-style: italic;">Player 1 Cards</p>
+      {% for j in player1_h %}
+      <div>{{ j }}</div>
+       {% endfor %}
+      </div>
+
+
+</div>
+
+<div class="row" style="outline: thin solid; grid-auto-flow: row;">
+  {% for i in discard_cards %}
+  <div class="column" style="outline: thin solid;margin-left: 20px; background-color:  {{ i.color }};">
+
+    <div >{{ i.color }} {{ i.values.value }}</div>
+    </div>
+  {% endfor %}
+
+  <div class="column" ><button style="height: 50px;width: 50px; margin-bottom: 20px;" name="Deck" text="Deck" value="Deck">Deck: {{ deck_count }}</button>
+  <div ><button style="height: 20px;width: 70px;  margin-bottom: 20px;" name="Next" text="Next" value="Next">Next</button></div> 
+  <div ><button style="height: 20px;width: 70px; margin-bottom: 20px;" name="Playall" text="Playall" value="Playall">Play all</button></div> 
+  <div ><button style="height: 20px;width: 70px;" name="Refresh" text="Refresh" value="Refresh">Refresh</button></div> </div>
+
+  <div class="column" style="outline: thin solid;margin-left: 20px;">
+     <div style="color: lightcoral"> Turn: {{ turn }}</div>
+    {% for j in scores_list %}
+      <div style="color: lightcoral">{{ j.Player }} Score:   {{ j.Score }}</div>
+      {% endfor %}
+      </div>
+</div>
+<div class="row" style="outline: thin solid">
+  {% for i in player2_c %}
+  <div class="column" style="outline: thin solid;margin-left: 20px;" >
+    {% for j in i %}
+    <div>{{ j }}</div>
+     {% endfor %}
+    </div>
+  {% endfor %}
+  <div class="column" style="outline: thin solid; margin-left: 20px;">
+    <p style="color: Orange; font-weight: 10px;margin-top: 0px; font-style: italic;">Player 2 Cards</p>
+
+    {% for j in player2_h %}
+    <div>{{ j }}</div>
+     {% endfor %}
+    </div>
+
+
+</div>
+
+
+
+</form>
+{% endblock body %}
+</html>
