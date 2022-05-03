@@ -6,8 +6,23 @@ import copy
 # Create your views here.
 
 
-  
+def every_step(game0, a1, a2):
+        game0.print_player_info()
+        if game0.returnplayer() == "Player 1":
+            is_false_answer = True
+            a = a1.policy(game0, game0.recent_action[1:3], game0.recent_chosen_card)
+            print(a)
+            is_false_answer = not game0.answer(a)  
+            
+        else:
+            is_false_answer = True
+            a = a2.policy(game0)
+            print(a)
+            is_false_answer = not game0.answer(a)   
+
         
+        if game0.end_game():
+            isEnd = True  
 
 def game(request):
     isEnd = False
@@ -24,22 +39,7 @@ def game(request):
 
     #while isEnd == False:
         if len(game0.deck) > 0:
-           
-            if game0.returnplayer() == "Player 1":
-                is_false_answer = True
-                a = a1.policy(game0, game0.recent_action[1:3], game0.recent_chosen_card)
-                print(a)
-                is_false_answer = not game0.answer(a)  
-                
-            else:
-                is_false_answer = True
-                a = a2.policy(game0)
-                print(a)
-                is_false_answer = not game0.answer(a)   
-
-            
-            if game0.end_game():
-                isEnd = True
+            every_step(game0, a1, a2)
         else:
             return render(request, "game.html", {'player1_c': player.cards, 'discard_cards': discard_cards,
     "player2_c": player2.cards, "player2_h": player2.hands,  "player1_h": player.hands, 
@@ -47,22 +47,8 @@ def game(request):
     elif "Playall" in request.GET:
 
         while len(game0.deck)>0:
+            every_step(game0, a1, a2)
             
-            if game0.returnplayer() == "Player 1":
-                is_false_answer = True
-                a = a1.policy(game0, game0.recent_action[1:3], game0.recent_chosen_card)
-                print(a)
-                is_false_answer = not game0.answer(a)  
-                
-            else:
-                is_false_answer = True
-                a = a2.policy(game0)
-                print(a)
-                is_false_answer = not game0.answer(a)   
-
-            
-            if game0.end_game():
-                isEnd = True
     game0.find_winners()
     player = game0.player1
     player2 =  game0.player2

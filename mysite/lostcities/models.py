@@ -1,3 +1,4 @@
+import imp
 from django.db import models
 import random
 import itertools
@@ -10,6 +11,7 @@ import time
 import numpy as np
 import copy
 from itertools import chain
+from multiprocessing import Process
 
 class Card(object):
     def __init__(self, value, color):
@@ -353,8 +355,9 @@ class Game(object):
 
     @staticmethod
     def is_instance(is_new=False):
-        if not Game._instance or is_new:
+        if (not Game._instance) or is_new:
            Game._instance = Game()
+           print("only once")
         return Game._instance
 
 class Agent1 ():
@@ -400,15 +403,15 @@ class Agent1 ():
         player = game.list_of_players[game.turn]
         turn = game.turn + 1
         turn = turn%2
-        opponent = game.list_of_players[turn]
-        player_cards = player.cards
+        opponent = copy.deepcopy(game.list_of_players[turn])
+        player_cards = copy.deepcopy(player.cards)
         game_cards = copy.deepcopy(game.cards)
-        opponent_cards = opponent.cards
+        opponent_cards = copy.deepcopy(opponent.cards)
         
         if  opponent_action[0] > 0:
-            if opponent_action[0] == 1:
+            if opponent_action[0] == 1 and len(opponent_cards[opponent_chosen_card.color])>0:
                 opponent_cards[opponent_chosen_card.color].pop(0)
-            else:
+            elif len(game_cards[opponent_chosen_card.color])>0:
                 game_cards[opponent_chosen_card.color].pop(0)
         
         updated_belief = self.belief_unopened2(game, player.hands, player.cards, opponent.cards)
@@ -423,10 +426,24 @@ class Agent1 ():
                     updated_belief[opponent_chosen_card.color][10] = 0
                 else:
                     updated_belief[opponent_chosen_card.color][11] = 0
-                    
         prob =  list(chain.from_iterable(belief))
         #rep_num = 1000
+        process_list=[]
         for iter  in range(0,rep_num):
+            p = Process(target=self.parallel_computation_sim, args=(opponent_chosen_card,
+         game, updated_belief, opponent_cards, player_cards, opponent_action, prob,))
+            p.start()
+            process_list.append(p)
+        #     self.parallel_computation_sim(opponent_chosen_card,
+        #  game, updated_belief, opponent_cards, player_cards, opponent_action, prob)    
+        for i in range(0, rep_num):
+            process_list[i].join()
+        
+        return updated_belief
+
+    def parallel_computation_sim(self,  opponent_chosen_card,
+         game, updated_belief, opponent_cards, player_cards, opponent_action, prob):
+        
             opponent_hands_index = []
             opponent_hands = [opponent_chosen_card]
             
@@ -495,9 +512,7 @@ class Agent1 ():
                 else:
                     updated_belief[opponent_chosen_card.color][9] += 1
             #print("updated_belief: ", updated_belief)
-            
-        return updated_belief
-                    
+                            
                     
     def belief_unopened(self, game):
         
