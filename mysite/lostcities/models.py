@@ -95,7 +95,9 @@ class Player(object):
     def __repr__(self):
         name = self.name
         return name
+
 class Game(object):
+    _instance = None
     def __init__(self):
         self.game_over = False
         #self.round_counter = 0
@@ -264,7 +266,6 @@ class Game(object):
                 return False
             else:
                 player.hands.append(self.cards[action[2]-1][0])
-                self.recent_cards = copy.deepcopy(self.cards)
                 self.cards[action[2]-1].pop(0)
         else:
             player.hands.append(self.deck[0])
@@ -352,77 +353,14 @@ class Game(object):
         self.score_all()       
         self.find_winners()
         self.round_ended = True
-        
 
-class Agent ():
-    def policy (self, game):
-        card_list, count, wager_list, score_of_cards=game.group_cards1() # card_list: card list, count = [#red/#green/#white/#yellow/#blue], wager_list=[#red wager/#green wager/#white wager/#yellow wager/#blue wager]
+    @staticmethod
+    def is_instance(is_new=False):
+        if (not Game._instance) or is_new:
+           Game._instance = Game()
+           print("only once")
+        return Game._instance
 
-        print(count, card_list, wager_list)
-
-        player = game.list_of_players[game.turn]
-        player2 =  game.list_of_players[(game.turn+1)%2]
-        
-        action_2=6
-        for i in range(5):
-            player_color_list = player.cards[i]
-            card_color_list= game.cards[i]
-            if player_color_list and card_color_list and player_color_list[0].value<card_color_list[0].value:
-                print("Pick Up Card", card_color_list[0])
-                action_2=i+1
-                break
-        print(score_of_cards, "score_of_cards")
-        max_score = max(score_of_cards)
-        max_score_index = score_of_cards.index(max_score)
-        
-        max_score_player=0
-        palyer_score_list=game.score_interpreter(player)
-        min_score_player = min(palyer_score_list)
-        min_score_index_player = palyer_score_list.index(min_score_player)
-        action=[]
-        print(palyer_score_list, "palyer_score_list")
-        max_value=-60
-        min_value=10
-        discard_card=None
-        for j in range(5):
-            if card_list[j]:
-                chosen_card=card_list[j][0]
-                discard_card = card_list[j][0]
-                i=chosen_card.color
-                value=chosen_card.value
-                print(chosen_card, "loop", chosen_card.color, palyer_score_list, i)
-            
-                if palyer_score_list[i]!=0:
-                    color_list_card = player.cards[i]
-
-                    if len(game.deck)>10:
-                        if value>5:
-                            continue
-                    if len(color_list_card)>=1 and count[i]>=1 and color_list_card[0].value<=value:
-                        print("Adding Cards for score")
-                        if palyer_score_list[i]+value> max_value:  
-                            action=[chosen_card, 1, action_2]
-                            max_value=palyer_score_list[i]+value    
-                    elif len(color_list_card)>=1 and count[i]>=1 and color_list_card[0].value>value:
-                        action=[chosen_card, 2, action_2]
-                        break
-                else:
-                    if len(game.deck)<=10:
-                        if value==0:
-                            continue
-                    if wager_list[i]!=0 and count[i]-wager_list[i]>=1:
-                        print("Adding wager")
-                        action=[chosen_card, 1, action_2]
-                        break
-
-        if len(action)==0:
-            print("Main Two")
-            action=[discard_card, 2, action_2]
-        
-        print(action)
-        action[0]=player.hands.index(action[0])+1
-        return action
-            
 class Agent1 ():
     
     def __init__(self):
@@ -476,21 +414,17 @@ class Agent1 ():
         player = game.list_of_players[game.turn]
         turn = game.turn + 1
         turn = turn%2
-        opponent = game.list_of_players[turn]
+        opponent = copy.deepcopy(game.list_of_players[turn])
         player_hands = copy.deepcopy(player.hands)
         player_cards = copy.deepcopy(player.cards)
         game_cards = copy.deepcopy(game.cards)
         opponent_cards = copy.deepcopy(opponent.cards)
         
-        if opponent_action[0] == 1:
-            opponent_cards[opponent_chosen_card.color].pop(0)
-        elif opponent_action[0] == 2:
-            game_cards[opponent_chosen_card.color].pop(0)
-        
-        opponent_new_hand = []
-        if opponent_action[1] < 6 and opponent_action[1] > 0:
-            opponent_new_hand = [game.recent_cards[opponent_action[1]-1][0]]
-            
+        if  opponent_action[0] > 0:
+            if opponent_action[0] == 1 and len(opponent_cards[opponent_chosen_card.color])>0:
+                opponent_cards[opponent_chosen_card.color].pop(0)
+            elif len(game_cards[opponent_chosen_card.color])>0:
+                game_cards[opponent_chosen_card.color].pop(0)
         
         updated_belief = self.belief_unopened2(game, player_hands, player_cards, opponent_cards)
         
@@ -504,10 +438,24 @@ class Agent1 ():
                     updated_belief[opponent_chosen_card.color][10] = 0
                 else:
                     updated_belief[opponent_chosen_card.color][11] = 0
-                    
         prob =  list(chain.from_iterable(belief))
         #rep_num = 1000
+        process_list=[]
         for iter  in range(0,rep_num):
+            p = threading.Thread(target=self.parallel_computation_sim, args=(opponent_chosen_card,
+         game, updated_belief, opponent_cards, player_cards, opponent_action, prob,))
+            p.start()
+            process_list.append(p)
+        #     self.parallel_computation_sim(opponent_chosen_card,
+        #  game, updated_belief, opponent_cards, player_cards, opponent_action, prob)    
+        for i in range(0, rep_num):
+            process_list[i].join()
+        
+        return updated_belief
+
+    def parallel_computation_sim(self,  opponent_chosen_card,
+         game, updated_belief, opponent_cards, player_cards, opponent_action, prob):
+        
             opponent_hands_index = []
             opponent_hands = [opponent_chosen_card]
             
@@ -518,9 +466,13 @@ class Agent1 ():
                 hands_num_sum = 7
             prob_temp = copy.deepcopy(prob)
             for i in range(0,hands_num_sum):
-                temp_hand = random.choices(range(0,60), weights = prob_temp, k=1)
-                opponent_hands_index.append(temp_hand[0])
-                prob_temp[temp_hand[0]] = 0
+                unique_hand = False
+                while not unique_hand:
+                    temp_hand = random.choices(range(0,60), weights = prob_temp, k=1)
+                    if temp_hand[0] not in opponent_hands_index:
+                        opponent_hands_index.append(temp_hand[0])
+                        prob_temp[temp_hand[0]] = 0
+                        unique_hand = True
             
             
             for hand in opponent_hands_index:
@@ -560,18 +512,6 @@ class Agent1 ():
             #print(opponent_action_estimate)
             
             if opponent_action_estimate == [1,opponent_action[0],opponent_action[1]]:
-                opponent_hands.pop(0)
-                if len(opponent_new_hand) == 0:
-                    new_hand_index = random.choices(range(0,60), weights = prob_temp, k=1)[0]
-                    value = new_hand_index % 12
-                    if value > 8:
-                        value = 0
-                    else:
-                        value += 2
-                    opponent_hands.append(Card( value, hand//12))
-                else:
-                    opponent_hands.append(opponent_new_hand[0])
-                    
                 for hand in opponent_hands:
                     if hand.value > 0:
                         updated_belief[hand.color][hand.value-2] += 1
@@ -584,9 +524,7 @@ class Agent1 ():
                 else:
                     updated_belief[opponent_chosen_card.color][9] += 1
             #print("updated_belief: ", updated_belief)
-            
-        return updated_belief
-                    
+                            
                     
     def belief_unopened(self, game):
         
@@ -709,7 +647,7 @@ class Agent1 ():
         
         return belief
     
-    
+   
     
     def immediate_reward2(self, game, action, hands, player_cards, opponent_cards, belief):
         
@@ -738,6 +676,13 @@ class Agent1 ():
         
         card_list, count, wager_list, score_list = game.group_cards2(hands) # card_list: card list, count = [#red/#green/#white/#yellow/#blue], wager_list=[#red wager/#green wager/#white wager/#yellow wager/#blue wager]
         val_transfer = np.array([2,3,4,5,6,7,8,9,10,0,0,0]) # function from indices to values, 0,1,2~11 -> 2,3,4,~10,0
+        
+        #player = game.list_of_players[game.turn] 
+        #turn = game.turn + 1
+        #turn = turn%2
+        
+        #opponent = game.list_of_players[turn]
+        
         chosen_card = hands[action[0]-1] # the card that the player will play with
         reward = 0 
         
@@ -790,7 +735,6 @@ class Agent1 ():
         return reward
     
     
-     
     def reward_eval1 (self, game, card, player_hands, player_cards, game_cards, opponent_cards, belief):
         
         
@@ -971,8 +915,9 @@ class Agent1 ():
                 reward = (num_wager_hands + num_wager_exped + num_wager3) * min(potential_value, 0)
             
         return reward
-    
+                
 class Agent2 ():
     def policy (self,game):
         action = [np.random.randint(8,size=1)[0]+1,np.random.randint(2,size=1)[0]+1,6] # random action and get a card from the deck
-        return action    
+        return action
+    
