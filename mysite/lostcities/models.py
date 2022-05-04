@@ -118,7 +118,8 @@ class Game(object):
         self.recent_action2 = [-1,-1,-1]
         self.recent_chosen_card = Card(-1,0)
         self.recent_cards =[[],[],[],[],[]] # discrad deck red/green/white/yellow/blue
-        
+        self.s1 = 0
+        self.s2 = 0
    
     
     def print_game_info(self):
@@ -266,6 +267,7 @@ class Game(object):
                 return False
             else:
                 player.hands.append(self.cards[action[2]-1][0])
+                self.recent_cards = copy.deepcopy(self.cards)
                 self.cards[action[2]-1].pop(0)
         else:
             player.hands.append(self.deck[0])
@@ -382,21 +384,21 @@ class Agent1 ():
         player_cards = copy.deepcopy(player.cards)
         opponent_cards = copy.deepcopy(opponent.cards)
         
-        self.belief0 = self.belief_update(game, self.belief0, 10, opponent_action, opponent_chosen_card)
+        if game.recent_action[0] == -1:
+            self.belief0 = self.belief_unopened(game)
+        else:
+            self.belief0 = self.belief_update(game, copy.deepcopy(self.belief0), 100, opponent_action, opponent_chosen_card)
         #self.belief0 = self.belief_unopened(game)
+        
+        #print("self.belief0: ", self.belief0)
         
         for i in range(8):
             for j in range(2):
                 for k in range(6):
                     belief = copy.deepcopy(self.belief0)
-                    #belief = self.belief_unopened(game)
-                    #print("belief: ",belief)
-                    #print("belief1:", belief)
-                    #print("belief sum1:",  sum([sum(x) for x in belief]) )
-                    qvalue[i][j][k] = self.immediate_reward2(game, [i+1,j+1,k+1], player_hands, player_cards, opponent_cards, belief )
+                    qvalue[i][j][k] = self.immediate_reward(game, [i+1,j+1,k+1], player_hands, player_cards, opponent_cards, belief )
+                    #print("action: ", [i+1,j+1,k+1],"reward: ",  qvalue[i][j][k])
                     
-                    #print(i,j,k, "self.belief3: ",self.belief0)
-        
                     
         loc_max = np.argmax(qvalue)
         a1 = loc_max / 12
@@ -411,6 +413,7 @@ class Agent1 ():
     def belief_update(self, game, belief, rep_num, opponent_action, opponent_chosen_card):
         
         #print("belief: ", belief )
+        belief = copy.deepcopy(belief)
         player = game.list_of_players[game.turn]
         turn = game.turn + 1
         turn = turn%2
@@ -420,7 +423,7 @@ class Agent1 ():
         game_cards = copy.deepcopy(game.cards)
         opponent_cards = copy.deepcopy(opponent.cards)
         
-        if  opponent_action[0] > 0:
+        if opponent_action[0] > 0:
             if opponent_action[0] == 1 and len(opponent_cards[opponent_chosen_card.color])>0:
                 opponent_cards[opponent_chosen_card.color].pop(0)
             elif len(game_cards[opponent_chosen_card.color])>0:
@@ -430,14 +433,18 @@ class Agent1 ():
         
         if  opponent_action[0] > 0:
             if opponent_chosen_card.value > 0:
-                updated_belief[opponent_chosen_card.color][opponent_chosen_card.value-2] = 0
+                belief[opponent_chosen_card.color][opponent_chosen_card.value-2] = 0
             else:
-                if updated_belief[opponent_chosen_card.color][9] > 0:
-                    updated_belief[opponent_chosen_card.color][9] = 0
-                elif updated_belief[opponent_chosen_card.color][10] > 0:
-                    updated_belief[opponent_chosen_card.color][10] = 0
+                if belief[opponent_chosen_card.color][9] > 0:
+                    belief[opponent_chosen_card.color][9] = 0
+                elif belief[opponent_chosen_card.color][10] > 0:
+                    belief[opponent_chosen_card.color][10] = 0
                 else:
-                    updated_belief[opponent_chosen_card.color][11] = 0
+                    belief[opponent_chosen_card.color][11] = 0
+        
+                    
+        #print("opponent_chosen_card: ", opponent_chosen_card)
+        #print("belief: ",belief)
         prob =  list(chain.from_iterable(belief))
         #rep_num = 1000
         process_list=[]
@@ -459,11 +466,17 @@ class Agent1 ():
             opponent_hands_index = []
             opponent_hands = [opponent_chosen_card]
             
+            opponent_new_hand = []
+            if opponent_action[1] < 6 and opponent_action[1] > 0:
+                if len(game.recent_cards[opponent_action[1]-1]) > 0:
+                    opponent_new_hand = [game.recent_cards[opponent_action[1]-1][0]]
+            
             if opponent_hands[0].value == -1:
                 hands_num_sum = 8
                 opponent_hands = []
             else:
                 hands_num_sum = 7
+                
             prob_temp = copy.deepcopy(prob)
             for i in range(0,hands_num_sum):
                 unique_hand = False
@@ -495,7 +508,7 @@ class Agent1 ():
                         op_belief = copy.deepcopy(opponent_belief)
                         #print("belief1:", belief)
                         #print("belief sum1:",  sum([sum(x) for x in belief]) )
-                        qvalue2[i][j][k] = self.immediate_reward2(game, [i+1,j+1,k+1], opponent_hands, opponent_cards, player_cards, op_belief)
+                        qvalue2[i][j][k] = self.immediate_reward(game, [i+1,j+1,k+1], opponent_hands, opponent_cards, player_cards, op_belief)
                         #print(i,j,k, "self.belief3: ",self.belief0)
              
             loc_max = np.argmax(qvalue2)
@@ -512,17 +525,25 @@ class Agent1 ():
             #print(opponent_action_estimate)
             
             if opponent_action_estimate == [1,opponent_action[0],opponent_action[1]]:
+                opponent_hands.pop(0)
+                if len(opponent_new_hand) == 0:
+                    new_hand_index = random.choices(range(0,60), weights = prob_temp, k=1)[0]
+                    value = new_hand_index % 12
+                    if value > 8:
+                        value = 0
+                    else:
+                        value += 2
+                    opponent_hands.append(Card( value, new_hand_index//12))
+                else:
+                    opponent_hands.append(opponent_new_hand[0])
+                
+                #print("opponent_hands: ", opponent_hands)    
                 for hand in opponent_hands:
                     if hand.value > 0:
                         updated_belief[hand.color][hand.value-2] += 1
                     else:
                         updated_belief[hand.color][9] += 1
             
-            if opponent_chosen_card.value > -1:
-                if  opponent_chosen_card.value > 0:
-                    updated_belief[opponent_chosen_card.color][opponent_chosen_card.value-2] += 1
-                else:
-                    updated_belief[opponent_chosen_card.color][9] += 1
             #print("updated_belief: ", updated_belief)
                             
                     
@@ -647,9 +668,13 @@ class Agent1 ():
         
         return belief
     
-   
     
-    def immediate_reward2(self, game, action, hands, player_cards, opponent_cards, belief):
+    
+    def immediate_reward (self, game, action, hands, player_cards, opponent_cards, belief):
+        
+        player_cards = copy.deepcopy(player_cards)
+        hands = copy.deepcopy(hands)
+        game_cards = copy.deepcopy(game.cards)
         
         belief_sum = sum([sum(x) for x in belief])
         num_nonzero = 0
@@ -676,44 +701,44 @@ class Agent1 ():
         
         card_list, count, wager_list, score_list = game.group_cards2(hands) # card_list: card list, count = [#red/#green/#white/#yellow/#blue], wager_list=[#red wager/#green wager/#white wager/#yellow wager/#blue wager]
         val_transfer = np.array([2,3,4,5,6,7,8,9,10,0,0,0]) # function from indices to values, 0,1,2~11 -> 2,3,4,~10,0
-        
-        #player = game.list_of_players[game.turn] 
-        #turn = game.turn + 1
-        #turn = turn%2
-        
-        #opponent = game.list_of_players[turn]
-        
+        #print("hands: ", hands)
+        #print("action[0]: ", action[0])
         chosen_card = hands[action[0]-1] # the card that the player will play with
         reward = 0 
         
         if action[1] == 1: # register the chosen card
-            if len(player_cards[chosen_card.color]) > 0: # some cards are registered already
-                if chosen_card.value < player_cards[chosen_card.color][0].value:
-                    reward = -10000
-                else:    
-                    reward = self.reward_eval1(game, chosen_card, hands, player_cards, game.cards, opponent_cards, belief2) # simple evaluation: 
-            else: # no card registerd
-                reward = self.reward_eval1(game, chosen_card, hands, player_cards, game.cards, opponent_cards, belief2)
+            if len(player_cards[chosen_card.color]) > 0 and chosen_card.value < player_cards[chosen_card.color][0].value:
+                #print("player_cards[chosen_card.color]", player_cards[chosen_card.color])                
+                reward = -10000
+            else:    
+                reward = self.reward_eval1(game, chosen_card, hands, player_cards, game_cards, opponent_cards, belief2) # simple evaluation: 
+                player_cards[chosen_card.color].insert(0,chosen_card)
         elif action[1] == 2: # discard the chosen card on the discard pile
-            if len(opponent_cards[chosen_card.color]) > 0:
-                if opponent_cards[chosen_card.color][0].value > chosen_card.value:
-                    reward = - -max(0, self.reward_eval2(game, chosen_card, hands, player_cards, game.cards, opponent_cards, belief2)) # some change needed # evaluation with potential blue 2,3,4,5,6, in hands: 9, 10
-                else:
-                    num_wager_hands = len(np.where( np.array( opponent_cards[chosen_card.color] ) == 0 )[0])
-                    reward = - max(0, self.reward_eval2(game, chosen_card, hands, player_cards, game.cards, opponent_cards, belief2) ) -  (num_wager_hands + 1) * chosen_card.value ## some change needed 
-            else:
-                reward = - max(0, self.reward_eval2(game, chosen_card, hands, player_cards, game.cards, opponent_cards, belief2)) ## some change needed 
-            #print("reward action[0]:",action[0]," action[1]: ",action[1]," reward: ",reward)
+            reward = - self.reward_eval3(game, chosen_card, hands, player_cards, game_cards, opponent_cards, belief, belief2)
+            #print("reward: ", reward)
+        #if len(opponent_cards[chosen_card.color]) > 0:
+            #    if opponent_cards[chosen_card.color][0].value > chosen_card.value:
+            #        reward = - -max(0, self.reward_eval2(game, chosen_card, hands, player_cards, game_cards, opponent_cards, belief2)) # some change needed # evaluation with potential blue 2,3,4,5,6, in hands: 9, 10
+            #    else:
+            #        num_wager_hands = len(np.where( np.array( opponent_cards[chosen_card.color] ) == 0 )[0])
+            #        reward = - max(0, self.reward_eval2(game, chosen_card, hands, player_cards, game_cards, opponent_cards, belief2) ) -  (num_wager_hands + 1) * chosen_card.value ## some change needed 
+            #elif chosen_card.value == 0:
+            #    reward = 0
+            #else:    
+            #    reward = - max(0, self.reward_eval2(game, chosen_card, hands, player_cards, game_cards, opponent_cards, belief2)) ## some change needed 
         
+        #print("reward action[0]:",action[0]," action[1]: ",action[1]," reward: ",reward)
         
+        hands.pop(action[0]-1)
                     
         #print("action1: ", action, ", reward:", reward)  
         if action[2] < 6: # taking a card from the discard pile
             if action[1] == 2 and chosen_card.color == action[2]-1:
                 reward = -10000
-            elif len(game.cards[action[2]-1]) > 0: # there is at least a card on the discard pile
-                picked_card = game.cards[action[2]-1][0]            
-                reward += self.reward_eval2(game, picked_card, hands, player_cards, game.cards, opponent_cards, belief2)
+            elif len(game_cards[action[2]-1]) > 0: # there is at least a card on the discard pile
+                picked_card = game.cards[action[2]-1][0]
+                hands.insert(0, picked_card)
+                reward += self.reward_eval2(game, picked_card, hands, player_cards, game_cards, opponent_cards, belief2)
             else: # no card on the discard pile
                 reward = -10000
         elif action[2] == 6: # drawing a card from the draw pile
@@ -724,10 +749,12 @@ class Agent1 ():
             if belief_sum > 0:
                 for i in range(0,5):
                     for j in range(0,12):
+                        temp_hands = copy.deepcopy(hands)
                         random_card = Card(val_transfer[j],i)
+                        temp_hands.insert(0, random_card)
                         temp_belief = copy.deepcopy(belief2)
                         temp_belief[i][j] = 0
-                        temp_reward += belief2[i][j]/belief_sum * self.reward_eval2(game, random_card, hands, player_cards, game.cards, opponent_cards, temp_belief)
+                        temp_reward += belief2[i][j]/belief_sum * self.reward_eval2(game, random_card, temp_hands, player_cards, game_cards, opponent_cards, temp_belief)
                 #print("temp_reward: ", temp_reward)            
                 reward +=  temp_reward
         
@@ -735,8 +762,8 @@ class Agent1 ():
         return reward
     
     
+     
     def reward_eval1 (self, game, card, player_hands, player_cards, game_cards, opponent_cards, belief):
-        
         
         card_list, count, wager_list, score_list = game.group_cards2(player_hands) # card_list: card list, count = [#red/#green/#white/#yellow/#blue], wager_list=[#red wager/#green wager/#white wager/#yellow wager/#blue wager]
         val_transfer = np.array([2,3,4,5,6,7,8,9,10,0,0,0])
@@ -808,49 +835,91 @@ class Agent1 ():
                     cards_losing[i] = 0
         
         potential_reward = -20 + card.value + sum(exped_values) + sum(hands_values) + 0.30 * sum(np.multiply( belief[card.color] , val_transfer))
-        
-                
+
         
         topcard_wager = False
         if len(player_cards[card.color]) > 0  and player_cards[card.color][0].value == 0:
             topcard_wager = True
         
-        if len(player_cards[card.color]) == 0 and card.value > 0:
-            if potential_reward > 0:
-                if sum(hands_values2) > 0:
-                    reward = - 10000
-                else: 
-                    reward =  card.value - 0.30 * sum(cards_losing)
+        
+        if len(player_cards[card.color]) == 0:
+            if card.value == 0:
+                reward = potential_reward  
             else:
-                reward = -10000
-        elif card.value == 0:
-            reward = potential_reward
-        elif card.value > 0 and topcard_wager == True:
-            if num_wager_hands > 0 or sum(hands_values2) > 0:
+                if potential_reward > 0:
+                    if sum(hands_values2) > 0 or num_wager_hands > 0: # if the player has some values that must be registered before the chosen card
+                        reward = - 10000
+                        #print("step1")
+                    else: 
+                        reward =  min(potential_reward, card.value) - 0.5 * sum(cards_losing)
+                else:
+                    reward = -10000
+                    #print("step2")
+            if len(game.deck) < len(card2):
                 reward  = -10000
-            else:
-                #reward = (1 + num_wager_exped) * (card.value - sum(hands_values2) - 0.2 * sum(np.multiply( belief[card.color][(player.cards[card.color][0].value):(card.value-1)] , val_transfer[(player.cards[card.color][0].value):(card.value-1)] ) ) 
-                reward = (1 + num_wager_exped - 0.15*sum(belief[card.color][9:12]) ) * (card.value - 0.30 * sum(cards_losing)) 
-                if len(game_cards[card.color]) > 0:
-                    if game_cards[card.color][0].value  < player_cards[card.color][0].value and game_cards[card.color][0].value  < card.value:
-                        reward -= (1 + num_wager_exped - 0.15*sum(belief[card.color][9:12]) ) * game_cards[card.color][0].value 
-        elif card.value > 0 and topcard_wager == False:
-            if sum(hands_values2) > 0:
-                reward = - 10000
-            else:    
-                reward = (1 + num_wager_exped) * ( card.value - 0.30 * sum(cards_losing))
-            
-            if len(game_cards[card.color]) > 0 and len(player_cards[card.color]) > 0:
-                if game_cards[card.color][0].value  < player_cards[card.color][0].value and game_cards[card.color][0].value  < card.value:
-                    reward -= (1 + num_wager_exped) * game_cards[card.color][0].value 
-            elif len(game.cards[card.color]) > 0 and len(player_cards[card.color]) == 0:
-                if game_cards[card.color][0].value  < card.value:
-                    reward -= (1 + num_wager_exped) * game_cards[card.color][0].value 
+        elif len(player_cards[card.color]) > 0:
+            if card.value == 0:
+                reward = potential_reward     
+            else: # value> 0
+                if topcard_wager == True:
+                    if num_wager_hands > 0 or sum(hands_values2) > 0:
+                        reward  = -10000
+                        #print("step3")
+                    else:
+                        reward = (1 + num_wager_exped - 0.15*sum(belief[card.color][9:12]) ) * (card.value - 0.5 * sum(cards_losing)) 
+                elif topcard_wager == False:
+                    if sum(hands_values2) > 0:
+                        reward  = -10000
+                        #print("step4")
+                    else:
+                        reward = (1 + num_wager_exped) * ( card.value - 0.5 * sum(cards_losing))
+                        
+        if card.value> 0  and len(game_cards[card.color]) > 0:
+            if len(player_cards[card.color]) > 0:
+                if game_cards[card.color][0].value > player_cards[card.color][0].value and game_cards[card.color][0].value  < card.value:
+                    reward = -10000
+                    #print("step5")
+            elif game_cards[card.color][0].value < card.value:
+                reward = -10000
+                #print("step6")
+        
+        return reward        
+        #if len(player_cards[card.color]) == 0 and card.value > 0: # first registration without wager cards
+        #    if potential_reward > 0:
+        #        if sum(hands_values2) > 0 or num_wager_hands > 0: # if the player has some values that must be registered before the chosen card
+        #            reward = - 10000
+        #        else: 
+        #            reward =  min(potential_reward, card.value) - 0.30 * sum(cards_losing)
+        #    else:
+        #        reward = -10000
+        #elif card.value == 0 and (len(player_cards[card.color]) == 0 or topcard_wager == True):
+        #    reward = potential_reward
+        #elif card.value > 0 and topcard_wager == True:
+        #    if num_wager_hands > 0 or sum(hands_values2) > 0:
+        #        reward  = -10000
+        #    else:
+        #        #reward = (1 + num_wager_exped) * (card.value - sum(hands_values2) - 0.2 * sum(np.multiply( belief[card.color][(player.cards[card.color][0].value):(card.value-1)] , val_transfer[(player.cards[card.color][0].value):(card.value-1)] ) ) 
+        #        reward = (1 + num_wager_exped - 0.15*sum(belief[card.color][9:12]) ) * (card.value - 0.30 * sum(cards_losing)) 
+        #        if len(game_cards[card.color]) > 0:
+        #            if game_cards[card.color][0].value  < player_cards[card.color][0].value and game_cards[card.color][0].value  < card.value:
+        #                reward -= (1 + num_wager_exped - 0.15*sum(belief[card.color][9:12]) ) * game_cards[card.color][0].value 
+        #elif card.value > 0 and topcard_wager == False:
+        #    if sum(hands_values2) > 0:
+        #        reward = - 10000
+        #    else:    
+        #        reward = (1 + num_wager_exped) * ( card.value - 0.30 * sum(cards_losing))
+        #    
+        #    if len(game_cards[card.color]) > 0 and len(player_cards[card.color]) > 0:
+        #        if game_cards[card.color][0].value  < player_cards[card.color][0].value and game_cards[card.color][0].value  < card.value:
+        #            reward -= (1 + num_wager_exped) * game_cards[card.color][0].value 
+        #    elif len(game.cards[card.color]) > 0 and len(player_cards[card.color]) == 0:
+        #        if game_cards[card.color][0].value  < card.value:
+        #            reward -= (1 + num_wager_exped) * game_cards[card.color][0].value 
         
         #print("val_transfer: ", val_transfer)
         #print("sum(hands_values2): ", sum(hands_values2),"sum(cards_losing): ", sum(cards_losing),  "asd: ", sum(np.multiply( belief[card.color] , val_transfer)))
             
-        return reward
+        #return reward
     
     
            
@@ -893,7 +962,7 @@ class Agent1 ():
         num_wager_exped = len(np.where( np.array( exped_values ) == 0 )[0]) # number of wager cards on the expedition column
         num_wager3 = 0.2 * len(np.where( np.array( belief[card.color][9:12] ) > 0 )[0])
 
-        potential_value = -20 + sum(exped_values) + sum(hands_values) + 0.4 * sum(np.multiply( belief[card.color] , val_transfer) )
+        potential_value = -20 + sum(exped_values) + sum(hands_values) + 0.3 * sum(np.multiply( belief[card.color] , val_transfer) )
 
         if len(player_cards[card.color]) > 0:
             if card.value > 0: 
@@ -915,9 +984,68 @@ class Agent1 ():
                 reward = (num_wager_hands + num_wager_exped + num_wager3) * min(potential_value, 0)
             
         return reward
+    
+    def reward_eval3 (self, game, card, player_hands, player_cards, game_cards, opponent_cards, belief, belief2):
+        
+        
+        #card_list, count, wager_list, score_list= game.group_cards2(player_hands) # card_list: card list, count = [#red/#green/#white/#yellow/#blue], wager_list=[#red wager/#green wager/#white wager/#yellow wager/#blue wager]
+        val_transfer = np.array([2,3,4,5,6,7,8,9,10,0,0,0])
+        #belief = self.belief_unopened(game)
+        
+        
+        #  remove the card from the unopened cards
+        if card.value > 0: 
+            belief[card.color][card.value-2] = 0
+        elif card.value == 0:
+            if belief[card.color][9] > 0:
+                belief[card.color][9] = 0
+            elif belief[card.color][10] > 0:
+                belief[card.color][10] = 0
+            else:
+                belief[card.color][11] = 0
+        
+                    
+        #print("belief[card.color]: ", belief[card.color])
+        #player = game.list_of_players[game.turn]
+        #turn = game.turn + 1
+        #turn = turn%2
+        #opponent = game.list_of_players[turn]
+        #chosen_card = player.hands[action[0]-1]
+        reward = 0
+        
+        
+        exped_values = [x.value for x in opponent_cards[card.color]] # expedition column
+        belief_sum = sum([sum(x) for x in belief])
+        num_wager_hands = sum(belief[card.color][9:13]) / belief_sum * 8
+        num_wager_exped = len(np.where( np.array( exped_values ) == 0 )[0]) # number of wager cards on the expedition column
+        num_wager3 = 0.2 * len(np.where( np.array( belief2[card.color][9:12] ) > 0 )[0])
+
+        potential_value = -20 + sum(exped_values) + sum(np.multiply( belief[card.color] , val_transfer) ) + 0.3 * sum(np.multiply( belief2[card.color] , val_transfer) )
+
+        if len(opponent_cards[card.color]) > 0:
+            if card.value > 0: 
+                if card.value < opponent_cards[card.color][0].value:
+                    return 0
+                elif opponent_cards[card.color][0].value > 0:
+                    reward = num_wager_exped * card.value
+                elif opponent_cards[card.color][0].value == 0:
+                    reward = (num_wager_hands + num_wager_exped + num_wager3) * card.value
+            elif card.value == 0:
+                if card.value < opponent_cards[card.color][0].value:
+                    return 0
+                else:
+                    reward = (num_wager_hands + num_wager_exped + num_wager3) * min(potential_value, 0)
+        else:
+            if card.value > 0: 
+                reward = (num_wager_hands + num_wager_exped + num_wager3) * card.value
+            elif card.value == 0:
+                reward = (num_wager_hands + num_wager_exped + num_wager3) * min(potential_value, 0)
+            
+        return reward
                 
 class Agent2 ():
     def policy (self,game):
         action = [np.random.randint(8,size=1)[0]+1,np.random.randint(2,size=1)[0]+1,6] # random action and get a card from the deck
         return action
     
+
