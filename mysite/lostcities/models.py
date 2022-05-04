@@ -138,16 +138,16 @@ class Game(object):
     def getPossibleActions(self):
         
             card_list, count, wager_list, score_list= self.group_cards()
-            print(card_list, count, wager_list, score_list )
+            #print(card_list, count, wager_list, score_list )
             player = self.list_of_players[self.turn]
             player2 =  self.list_of_players[(self.turn+1)%2]
             palyer_score_list=self.score_interpreter(player)
-            print(player.cards)
+            #print(player.cards)
             action_list1=[]
             for i in range(5):
                 action_1 = -1
                 player_color_list = player.cards[i]
-                print(player_color_list)
+                #print(player_color_list)
                 if (card_list[i] and player_color_list and player_color_list[0].value<=card_list[i][0].value) or (card_list[i]):
                     action_list1.append(card_list[i][0])
 
@@ -159,9 +159,9 @@ class Game(object):
                 player_color_list = player.cards[i]
                 card_color_list= self.cards[i]
                 if player_color_list and card_color_list and player_color_list[0].value<card_color_list[0].value:
-                    print("Pick Up Card", card_color_list[0])
+                    #print("Pick Up Card", card_color_list[0])
                     action_list3.append(i+1)
-            print(action_list3, action_list1)
+            #print(action_list3, action_list1)
             p = itertools.product(action_list1, action_list2, action_list3)
             q=[]
             for i in p:
@@ -173,11 +173,11 @@ class Game(object):
                     a[1]=i[1]
                     a[2]=i[2]
                     q.append(Action(player.name, a[0], a[1], a[2]))
-            print(q)
+            #print(q)
 
             
-            print(list(p))
-            print(list(q))
+            #print(list(p))
+            #print(list(q))
 
             return q
 
@@ -393,14 +393,14 @@ class Game(object):
         return (score_list)
     
     def end_game(self):
-        print(self.deck)
+        #print(self.deck)
         if len(self.deck) == 0:
             return True
         else:
             return False
         
     def isTerminal(self):
-        print(self.deck)
+        #print(self.deck)
         if len(self.deck) == 0:
             return True
         else:
@@ -412,10 +412,14 @@ class Game(object):
         print(f"Scores: Player1: {s1}, Player 2: {s2}")
         if s1>s2:
             print("Player 1 won.")
+            self.winner =  1
         if s1==s2:
             print("Tied.")
+            self.winner =  100
         if s1<s2:
-            print("Player 2 won.")    
+            print("Player 2 won.")  
+            self.winner =  2 
+        
             
         
      
@@ -434,7 +438,6 @@ class Game(object):
     def is_instance(is_new=False):
         if (not Game._instance) or is_new:
            Game._instance = Game()
-           print("only once")
         return Game._instance
 
 class Agent1 ():
@@ -1096,7 +1099,7 @@ class Agent ():
     def policy (self, game):
         card_list, count, wager_list, score_of_cards=game.group_cards() # card_list: card list, count = [#red/#green/#white/#yellow/#blue], wager_list=[#red wager/#green wager/#white wager/#yellow wager/#blue wager]
 
-        print(count, card_list, wager_list)
+        #print(count, card_list, wager_list)
 
         player = game.list_of_players[game.turn]
         player2 =  game.list_of_players[(game.turn+1)%2]
@@ -1106,10 +1109,10 @@ class Agent ():
             player_color_list = player.cards[i]
             card_color_list= game.cards[i]
             if player_color_list and card_color_list and player_color_list[0].value<card_color_list[0].value:
-                print("Pick Up Card", card_color_list[0])
+               # print("Pick Up Card", card_color_list[0])
                 action_2=i+1
                 break
-        print(score_of_cards, "score_of_cards")
+       # print(score_of_cards, "score_of_cards")
         max_score = max(score_of_cards)
         max_score_index = score_of_cards.index(max_score)
         
@@ -1118,7 +1121,7 @@ class Agent ():
         min_score_player = min(palyer_score_list)
         min_score_index_player = palyer_score_list.index(min_score_player)
         action=[]
-        print(palyer_score_list, "palyer_score_list")
+        #print(palyer_score_list, "palyer_score_list")
         max_value=-60
         min_value=10
         discard_card=None
@@ -1128,7 +1131,7 @@ class Agent ():
                 discard_card = card_list[j][0]
                 i=chosen_card.color
                 value=chosen_card.value
-                print(chosen_card, "loop", chosen_card.color, palyer_score_list, i)
+                #print(chosen_card, "loop", chosen_card.color, palyer_score_list, i)
             
                 if palyer_score_list[i]!=0:
                     color_list_card = player.cards[i]
@@ -1137,7 +1140,7 @@ class Agent ():
                         if value>5:
                             continue
                     if len(color_list_card)>=1 and count[i]>=1 and color_list_card[0].value<=value:
-                        print("Adding Cards for score")
+                       # print("Adding Cards for score")
                         if palyer_score_list[i]+value> max_value:  
                             action=[chosen_card, 1, action_2]
                             max_value=palyer_score_list[i]+value    
@@ -1149,21 +1152,21 @@ class Agent ():
                         if value==0:
                             continue
                     if wager_list[i]!=0 and count[i]-wager_list[i]>=1:
-                        print("Adding wager")
+                       # print("Adding wager")
                         action=[chosen_card, 1, action_2]
                         break
 
         if len(action)==0:
-            print("Main Two")
+            #print("Main Two")
             action=[discard_card, 2, action_2]
         
-        print(action)
+        #print(action)
         if action[0].color==action_2-1  and action[1]==2:
             for i in range(5):
                 player_color_list = player.cards[i]
                 card_color_list= game.cards[i]
                 if player_color_list and card_color_list and player_color_list[0].value<card_color_list[0].value and i!=card_color_list[0].color:
-                    print("Pick Up Card", card_color_list[0])
+                    #print("Pick Up Card", card_color_list[0])
                     action_2=i+1
                     break
             action[2]=action_2
@@ -1196,7 +1199,7 @@ from mcts import mcts
 class Agent_Mcts(object):
 
     def policy(self, game):
-        initialState = (Game.is_instance())
+        initialState = game
         searcher = mcts(timeLimit=1000)
         action = searcher.search(initialState=initialState)
         return (action)

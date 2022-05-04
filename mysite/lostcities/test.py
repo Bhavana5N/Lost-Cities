@@ -1,81 +1,47 @@
-from __future__ import division
+from models import  Game, Agent1, Agent2, Agent, Agent_Mcts
 
-from copy import deepcopy
-from mcts import mcts
-from functools import reduce
-import operator
+def every_step(game0, a1, a2):
+        #game0.print_player_info()
+        if game0.returnplayer() == "Player 1":
+            is_false_answer = True
+            #a = a1.policy(game0, game0.recent_action[1:3], game0.recent_chosen_card)
+            a = a1.policy(game0)
+            print(a)
+            is_false_answer = not game0.answer(a)  
+            
+        else:
+            is_false_answer = True
+            a = a2.policy(game0)
+            print(a)
+            is_false_answer = not game0.answer(a)   
 
-
-class NaughtsAndCrossesState():
-    def __init__(self):
-        self.board = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
-        self.currentPlayer = 1
-
-    def getCurrentPlayer(self):
-        return self.currentPlayer
-
-    def getPossibleActions(self):
-        possibleActions = []
-        for i in range(len(self.board)):
-            for j in range(len(self.board[i])):
-                if self.board[i][j] == 0:
-                    possibleActions.append(Action(player=self.currentPlayer, x=i, y=j))
-        return possibleActions
-
-    def takeAction(self, action):
-        newState = deepcopy(self)
-        newState.board[action.x][action.y] = action.player
-        newState.currentPlayer = self.currentPlayer * -1
-        return newState
-
-    def isTerminal(self):
-        for row in self.board:
-            if abs(sum(row)) == 3:
-                return True
-        for column in list(map(list, zip(*self.board))):
-            if abs(sum(column)) == 3:
-                return True
-        for diagonal in [[self.board[i][i] for i in range(len(self.board))],
-                         [self.board[i][len(self.board) - i - 1] for i in range(len(self.board))]]:
-            if abs(sum(diagonal)) == 3:
-                return True
-        return reduce(operator.mul, sum(self.board, []), 1)
-
-    def getReward(self):
-        for row in self.board:
-            if abs(sum(row)) == 3:
-                return sum(row) / 3
-        for column in list(map(list, zip(*self.board))):
-            if abs(sum(column)) == 3:
-                return sum(column) / 3
-        for diagonal in [[self.board[i][i] for i in range(len(self.board))],
-                         [self.board[i][len(self.board) - i - 1] for i in range(len(self.board))]]:
-            if abs(sum(diagonal)) == 3:
-                return sum(diagonal) / 3
-        return False
+        
+        if game0.end_game():
+            isEnd = True  
+dual_list=[]
+mcts_list=[]
+random_list=[]
+greedy_list=[]
+winners_list=[]
+for i in range(100):
+    try:
+        isEnd = False
+        a1 = Agent2()
+        a2 = Agent_Mcts()
+        game0 = Game()
+        while len(game0.deck)>0:
+                every_step(game0, a1, a2)
+        game0.find_winners()
+        print(game0.winner, "rrrr")
+        winners_list.append(game0.winner)
+    except:
+        import traceback
+        print(traceback.format_exc())
+        #winners_list.append(0)
+print(winners_list)
+import matplotlib.pyplot as plt
+plt.plot(list(range(len(winners_list))), winners_list)
+plt.show()
 
 
-class Action():
-    def __init__(self, player, x, y):
-        self.player = player
-        self.x = x
-        self.y = y
 
-    def __str__(self):
-        return str((self.x, self.y))
-
-    def __repr__(self):
-        return str(self)
-
-    def __eq__(self, other):
-        return self.__class__ == other.__class__ and self.x == other.x and self.y == other.y and self.player == other.player
-
-    def __hash__(self):
-        return hash((self.x, self.y, self.player))
-
-if __name__=="__main__":
-    initialState = NaughtsAndCrossesState()
-    searcher = mcts(timeLimit=1000)
-    action = searcher.search(initialState=initialState)
-
-    print(action)

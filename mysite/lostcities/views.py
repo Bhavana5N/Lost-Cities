@@ -37,7 +37,7 @@ def game(request):
         game0 = Game.is_instance(True)
 
     elif "Next" in request.GET:
-
+        
     #while isEnd == False:
         if len(game0.deck) > 0:
             every_step(game0, a1, a2)
